@@ -1,0 +1,63 @@
+import org.jooq.DSLContext;
+import org.jooq.Record;
+import org.jooq.Result;
+import static generated.tables.AuthorTable.AUTHOR;
+import static generated.tables.BudgetTable.BUDGET;
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
+import java.util.List;
+import org.jooq.impl.DSL;
+
+public class BudgetService {
+
+    private final DSLContext dslContext;
+
+    public BudgetService(DSLContext dslContext) {
+        this.dslContext = dslContext;
+    }
+
+    public void createAuthor(String name) {
+        LocalDateTime createdAt = LocalDateTime.now();
+        dslContext.insertInto(AUTHOR, AUTHOR.NAME, AUTHOR.CREATED_AT)
+                .values(name, Timestamp.valueOf(createdAt))
+                .execute();
+    }
+
+    public void createBudgetRecord(int year, int month, int amount, BudgetType type, Integer authorId) {
+        dslContext.insertInto(BUDGET, BUDGET.YEAR, BUDGET.MONTH, BUDGET.AMOUNT, BUDGET.TYPE, 
+BUDGET.AUTHOR_ID)
+                .values(year, month, amount, type.name(), authorId)
+                .execute();
+    }
+
+    public List<BudgetRecord> getBudgetRecordsByYear(int year) {
+        Result<Record> result = dslContext.select()
+                .from(BUDGET)
+                .where(BUDGET.YEAR.eq(year))
+                .fetch();
+
+        return result.into(BudgetRecord.class);
+    }
+
+    public List<BudgetRecord> getBudgetRecordsByYearWithAuthor(int year, String authorFilter) {
+        // Поддержка фильтрации по ФИО автора
+        if (authorFilter != null && !authorFilter.isEmpty()) {
+            Result<Record> result = dslContext.select()
+                    .from(BUDGET)
+                    .leftJoin(AUTHOR).on(BUDGET.AUTHOR_ID.eq(AUTHOR.ID))
+                    
+.where(BUDGET.YEAR.eq(year).and(DSL.lower(AUTHOR.NAME).contains(authorFilter.toLowerCase())))
+                    .fetch();
+
+            return result.into(BudgetRecord.class);
+        } else {
+            Result<Record> result = dslContext.select()
+                    .from(BUDGET)
+                    .leftJoin(AUTHOR).on(BUDGET.AUTHOR_ID.eq(AUTHOR.ID))
+                    .where(BUDGET.YEAR.eq(year))
+                    .fetch();
+
+            return result.into(BudgetRecord.class);
+        }
+    }
+}
